@@ -1,0 +1,142 @@
+type Market {
+  id: ID!
+  chainId: Int!
+  marketId: String!
+
+  # MarketParams fields
+  loanToken: String!
+  collateralToken: String!
+  oracle: String!
+  irm: String!
+  lltv: BigInt!
+
+  # Market fields
+  totalSupplyAssets: BigInt!
+  totalSupplyShares: BigInt!
+  totalBorrowAssets: BigInt!
+  totalBorrowShares: BigInt!
+  lastUpdate: BigInt!
+  fee: BigInt!
+
+  # AdaptiveCurveIrm fields
+  rateAtTarget: BigInt!
+
+  # Reverse lookups
+  positions: [Position!]! @derivedFrom(field: "market_id")
+  relatedVaultConfigs: [VaultConfigItem!]! @derivedFrom(field: "market_id")
+  relatedVaultSupplyQueues: [VaultSupplyQueueItem!]! @derivedFrom(field: "market_id")
+  relatedVaultWithdrawQueues: [VaultWithdrawQueueItem!]! @derivedFrom(field: "market_id")
+  relatedPreLiquidationContracts: [PreLiquidationContract!]! @derivedFrom(field: "market_id")
+}
+
+type Position {
+  id: ID!
+  chainId: Int!
+  market_id: String! @index
+  user: String!
+
+  # Position fields
+  supplyShares: BigInt!
+  borrowShares: BigInt!
+  collateral: BigInt!
+}
+
+type Authorization {
+  id: ID!
+  chainId: Int!
+  authorizer: String!
+  authorizee: String!
+  isAuthorized: Boolean!
+}
+
+type PreLiquidationContract {
+  id: ID!
+  chainId: Int!
+  market_id: String! @index
+  address: String!
+
+  # PreLiquidationParams fields
+  preLltv: BigInt!
+  preLCF1: BigInt!
+  preLCF2: BigInt!
+  preLIF1: BigInt!
+  preLIF2: BigInt!
+  preLiquidationOracle: String!
+}
+
+type Vault {
+  id: ID!
+  chainId: Int!
+  address: String!
+
+  # Immutables
+  asset: String!
+  decimalsUnderlying: Int!
+  decimalsOffset: Int!
+
+  # Storage
+  totalSupply: BigInt!
+  owner: String!
+  pendingOwner: String!
+  curator: String!
+  allocators: Json!
+  guardian: String!
+  timelock: BigInt!
+  pendingGuardian: String!
+  pendingGuardianValidAt: BigInt!
+  pendingTimelock: BigInt!
+  pendingTimelockValidAt: BigInt!
+  fee: BigInt!
+  feeRecipient: String!
+  skimRecipient: String!
+  supplyQueueLength: Int!
+  withdrawQueueLength: Int!
+  lastTotalAssets: BigInt!
+  lostAssets: BigInt!
+  name: String!
+  symbol: String!
+
+  # Reverse lookups
+  balances: [VaultBalance!]! @derivedFrom(field: "vault_id")
+  config: [VaultConfigItem!]! @derivedFrom(field: "vault_id")
+  supplyQueue: [VaultSupplyQueueItem!]! @derivedFrom(field: "vault_id")
+  withdrawQueue: [VaultWithdrawQueueItem!]! @derivedFrom(field: "vault_id")
+}
+
+type VaultBalance {
+  id: ID!
+  chainId: Int!
+  vault_id: String! @index
+  user: String!
+  shares: BigInt!
+}
+
+type VaultConfigItem {
+  id: ID!
+  chainId: Int!
+  vault_id: String! @index
+  market_id: String! @index
+
+  # MarketConfig fields
+  cap: BigInt!
+  pendingCap: BigInt!
+  pendingCapValidAt: BigInt!
+  enabled: Boolean!
+  removableAt: BigInt!
+}
+
+type VaultSupplyQueueItem {
+  id: ID!
+  chainId: Int!
+  vault_id: String! @index
+  ordinal: Int!
+  market_id: String @index
+}
+
+type VaultWithdrawQueueItem {
+  id: ID!
+  chainId: Int!
+  vault_id: String! @index
+  ordinal: Int!
+  market_id: String @index
+}
