@@ -101,27 +101,22 @@ MetaMorpho.SubmitCap.handler(async ({ event, context }) => {
     event.srcAddress,
     event.params.id,
   );
-  const existing = await context.VaultConfigItem.get(configId);
-
-  if (existing) {
-    context.VaultConfigItem.set({
-      ...existing,
-      pendingCap: event.params.cap,
-      pendingCapValidAt: BigInt(event.block.timestamp) + timelock,
-    });
-  } else {
-    context.VaultConfigItem.set({
-      id: configId,
-      chainId: event.chainId,
-      vault_id: vId,
-      market_id: marketId(event.chainId, event.params.id),
-      cap: 0n,
-      pendingCap: event.params.cap,
-      pendingCapValidAt: BigInt(event.block.timestamp) + timelock,
-      enabled: false,
-      removableAt: 0n,
-    });
-  }
+  const config = await context.VaultConfigItem.getOrCreate({
+    id: configId,
+    chainId: event.chainId,
+    vault_id: vId,
+    market_id: marketId(event.chainId, event.params.id),
+    cap: 0n,
+    pendingCap: 0n,
+    pendingCapValidAt: 0n,
+    enabled: false,
+    removableAt: 0n,
+  });
+  context.VaultConfigItem.set({
+    ...config,
+    pendingCap: event.params.cap,
+    pendingCapValidAt: BigInt(event.block.timestamp) + timelock,
+  });
 });
 
 MetaMorpho.SubmitGuardian.handler(async ({ event, context }) => {
@@ -182,27 +177,22 @@ MetaMorpho.RevokePendingCap.handler(async ({ event, context }) => {
     event.srcAddress,
     event.params.id,
   );
-  const existing = await context.VaultConfigItem.get(configId);
-
-  if (existing) {
-    context.VaultConfigItem.set({
-      ...existing,
-      pendingCap: 0n,
-      pendingCapValidAt: 0n,
-    });
-  } else {
-    context.VaultConfigItem.set({
-      id: configId,
-      chainId: event.chainId,
-      vault_id: vId,
-      market_id: marketId(event.chainId, event.params.id),
-      cap: 0n,
-      pendingCap: 0n,
-      pendingCapValidAt: 0n,
-      enabled: false,
-      removableAt: 0n,
-    });
-  }
+  const config = await context.VaultConfigItem.getOrCreate({
+    id: configId,
+    chainId: event.chainId,
+    vault_id: vId,
+    market_id: marketId(event.chainId, event.params.id),
+    cap: 0n,
+    pendingCap: 0n,
+    pendingCapValidAt: 0n,
+    enabled: false,
+    removableAt: 0n,
+  });
+  context.VaultConfigItem.set({
+    ...config,
+    pendingCap: 0n,
+    pendingCapValidAt: 0n,
+  });
 });
 
 MetaMorpho.RevokePendingGuardian.handler(async ({ event, context }) => {
@@ -224,26 +214,21 @@ MetaMorpho.RevokePendingMarketRemoval.handler(async ({ event, context }) => {
     event.srcAddress,
     event.params.id,
   );
-  const existing = await context.VaultConfigItem.get(configId);
-
-  if (existing) {
-    context.VaultConfigItem.set({
-      ...existing,
-      removableAt: 0n,
-    });
-  } else {
-    context.VaultConfigItem.set({
-      id: configId,
-      chainId: event.chainId,
-      vault_id: vId,
-      market_id: marketId(event.chainId, event.params.id),
-      cap: 0n,
-      pendingCap: 0n,
-      pendingCapValidAt: 0n,
-      enabled: false,
-      removableAt: 0n,
-    });
-  }
+  const config = await context.VaultConfigItem.getOrCreate({
+    id: configId,
+    chainId: event.chainId,
+    vault_id: vId,
+    market_id: marketId(event.chainId, event.params.id),
+    cap: 0n,
+    pendingCap: 0n,
+    pendingCapValidAt: 0n,
+    enabled: false,
+    removableAt: 0n,
+  });
+  context.VaultConfigItem.set({
+    ...config,
+    removableAt: 0n,
+  });
 });
 
 MetaMorpho.RevokePendingTimelock.handler(async ({ event, context }) => {
@@ -417,25 +402,19 @@ MetaMorpho.SetSupplyQueue.handler(async ({ event, context }) => {
     );
     const queueMarketId = newQueue[ordinal] ?? undefined;
 
-    const existing = await context.VaultSupplyQueueItem.get(queueItemId);
-    if (existing) {
-      context.VaultSupplyQueueItem.set({
-        ...existing,
-        market_id: queueMarketId
-          ? marketId(event.chainId, queueMarketId)
-          : undefined,
-      });
-    } else {
-      context.VaultSupplyQueueItem.set({
-        id: queueItemId,
-        chainId: event.chainId,
-        vault_id: vId,
-        ordinal,
-        market_id: queueMarketId
-          ? marketId(event.chainId, queueMarketId)
-          : undefined,
-      });
-    }
+    const queueItem = await context.VaultSupplyQueueItem.getOrCreate({
+      id: queueItemId,
+      chainId: event.chainId,
+      vault_id: vId,
+      ordinal,
+      market_id: undefined,
+    });
+    context.VaultSupplyQueueItem.set({
+      ...queueItem,
+      market_id: queueMarketId
+        ? marketId(event.chainId, queueMarketId)
+        : undefined,
+    });
   }
 });
 
@@ -461,25 +440,19 @@ MetaMorpho.SetWithdrawQueue.handler(async ({ event, context }) => {
     );
     const queueMarketId = newQueue[ordinal] ?? undefined;
 
-    const existing = await context.VaultWithdrawQueueItem.get(queueItemId);
-    if (existing) {
-      context.VaultWithdrawQueueItem.set({
-        ...existing,
-        market_id: queueMarketId
-          ? marketId(event.chainId, queueMarketId)
-          : undefined,
-      });
-    } else {
-      context.VaultWithdrawQueueItem.set({
-        id: queueItemId,
-        chainId: event.chainId,
-        vault_id: vId,
-        ordinal,
-        market_id: queueMarketId
-          ? marketId(event.chainId, queueMarketId)
-          : undefined,
-      });
-    }
+    const queueItem = await context.VaultWithdrawQueueItem.getOrCreate({
+      id: queueItemId,
+      chainId: event.chainId,
+      vault_id: vId,
+      ordinal,
+      market_id: undefined,
+    });
+    context.VaultWithdrawQueueItem.set({
+      ...queueItem,
+      market_id: queueMarketId
+        ? marketId(event.chainId, queueMarketId)
+        : undefined,
+    });
   }
 });
 
@@ -508,13 +481,11 @@ MetaMorpho.Transfer.handler(async ({ event, context }) => {
       event.srcAddress,
       event.params.from,
     );
-    const fromBalance = await context.VaultBalance.get(fromBalanceId);
-    if (fromBalance) {
-      context.VaultBalance.set({
-        ...fromBalance,
-        shares: fromBalance.shares - event.params.value,
-      });
-    }
+    const fromBalance = await context.VaultBalance.getOrThrow(fromBalanceId);
+    context.VaultBalance.set({
+      ...fromBalance,
+      shares: fromBalance.shares - event.params.value,
+    });
   }
 
   if (event.params.to === ZERO_ADDRESS) {
@@ -533,21 +504,17 @@ MetaMorpho.Transfer.handler(async ({ event, context }) => {
       event.srcAddress,
       event.params.to,
     );
-    const toBalance = await context.VaultBalance.get(toBalanceId);
-    if (toBalance) {
-      context.VaultBalance.set({
-        ...toBalance,
-        shares: toBalance.shares + event.params.value,
-      });
-    } else {
-      context.VaultBalance.set({
-        id: toBalanceId,
-        chainId: event.chainId,
-        vault_id: vId,
-        user: event.params.to,
-        shares: event.params.value,
-      });
-    }
+    const toBalance = await context.VaultBalance.getOrCreate({
+      id: toBalanceId,
+      chainId: event.chainId,
+      vault_id: vId,
+      user: event.params.to,
+      shares: 0n,
+    });
+    context.VaultBalance.set({
+      ...toBalance,
+      shares: toBalance.shares + event.params.value,
+    });
   }
 });
 

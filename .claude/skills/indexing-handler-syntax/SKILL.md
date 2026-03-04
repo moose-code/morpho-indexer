@@ -78,6 +78,36 @@ if (entity) {
 }
 ```
 
+## Preload & Sequential Runs
+
+Handlers run twice per batch: a **preload** pass (parallel, warms entity cache) and a **sequential** pass (actual state changes). During the sequential run, `get()` / `getOrThrow()` / `getOrCreate()` **correctly return values from previous `set()` calls** within the same batch. There is NO stale-read problem — Envio handles this correctly.
+
+- `set()` is a no-op during preload (by design)
+- Use `context.isPreload` only for skipping side-effects like logging, NOT for entity logic
+- Do NOT assume `get()` returns stale data — it always reflects the latest `set()` in sequential order
+
+## Upsert Pattern — Prefer `getOrCreate`
+
+For entities that may or may not exist yet, use `getOrCreate` instead of `get` + `if/else`:
+
+```ts
+// PREFERRED — atomic upsert
+const position = await context.Position.getOrCreate({
+  id: pId,
+  field1: defaultValue1,
+  field2: defaultValue2,
+});
+context.Position.set({ ...position, field1: position.field1 + delta });
+
+// AVOID — manual upsert (verbose, error-prone)
+const existing = await context.Position.get(pId);
+if (existing) {
+  context.Position.set({ ...existing, field1: existing.field1 + delta });
+} else {
+  context.Position.set({ id: pId, field1: delta, field2: defaultValue2 });
+}
+```
+
 ## `indexer` Runtime API
 
 ```ts

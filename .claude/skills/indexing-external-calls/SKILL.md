@@ -12,8 +12,8 @@ description: >-
 
 HyperIndex uses **Preload Optimization** — handlers run TWICE:
 
-1. **Preload pass**: all handlers in the batch run in parallel (to warm caches)
-2. **Sequential pass**: handlers run in event order (actual state changes)
+1. **Preload pass**: all handlers in the batch run in parallel (to warm entity and effect caches). `set()` is a no-op during preload.
+2. **Sequential pass**: handlers run in event order (actual state changes). `get()` correctly returns values from previous `set()` calls — no stale reads.
 
 All external calls (fetch, RPC, APIs) MUST use the Effect API to prevent double execution and enable parallelization.
 

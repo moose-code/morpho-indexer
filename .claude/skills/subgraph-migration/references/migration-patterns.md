@@ -161,7 +161,7 @@ if (existingMint.length > 0) {
 
 ## Effect API for External Calls
 
-ALL external calls (RPC, fetch, APIs) MUST use the Effect API. This is mandatory because handlers run twice (preload + sequential).
+ALL external calls (RPC, fetch, APIs) MUST use the Effect API. This is mandatory because handlers run twice (preload + sequential). Note: entity `get()` calls correctly return values from previous `set()` calls during the sequential pass — there is no stale-read issue. The Effect API is needed for external I/O, not for entity reads.
 
 ### Basic Effect Pattern
 

@@ -25,12 +25,12 @@ Morpho.CreateMarket.handler(async ({ event, context }) => {
     fee: 0n,
     rateAtTarget: 0n,
   });
+
 });
 
 Morpho.SetFee.handler(async ({ event, context }) => {
   const id = marketId(event.chainId, event.params.id);
-  const existing = await context.Market.get(id);
-  if (!existing) return;
+  const existing = await context.Market.getOrThrow(id);
 
   context.Market.set({
     ...existing,
@@ -41,8 +41,7 @@ Morpho.SetFee.handler(async ({ event, context }) => {
 
 Morpho.AccrueInterest.handler(async ({ event, context }) => {
   const id = marketId(event.chainId, event.params.id);
-  const existing = await context.Market.get(id);
-  if (!existing) return;
+  const existing = await context.Market.getOrThrow(id);
 
   context.Market.set({
     ...existing,
@@ -54,193 +53,187 @@ Morpho.AccrueInterest.handler(async ({ event, context }) => {
 });
 
 Morpho.Supply.handler(async ({ event, context }) => {
-  // Update market
   const mId = marketId(event.chainId, event.params.id);
-  const existingMarket = await context.Market.get(mId);
-  if (existingMarket) {
-    context.Market.set({
-      ...existingMarket,
-      totalSupplyAssets: existingMarket.totalSupplyAssets + event.params.assets,
-      totalSupplyShares: existingMarket.totalSupplyShares + event.params.shares,
-      lastUpdate: BigInt(event.block.timestamp),
-    });
-  }
+  const market = await context.Market.getOrThrow(mId);
+  context.Market.set({
+    ...market,
+    totalSupplyAssets: market.totalSupplyAssets + event.params.assets,
+    totalSupplyShares: market.totalSupplyShares + event.params.shares,
+    lastUpdate: BigInt(event.block.timestamp),
+  });
 
-  // Upsert position
   const pId = positionId(event.chainId, event.params.id, event.params.onBehalf);
-  const existingPosition = await context.Position.get(pId);
-  if (existingPosition) {
-    context.Position.set({
-      ...existingPosition,
-      supplyShares: existingPosition.supplyShares + event.params.shares,
-    });
-  } else {
-    context.Position.set({
-      id: pId,
-      chainId: event.chainId,
-      market_id: mId,
-      user: event.params.onBehalf,
-      supplyShares: event.params.shares,
-      borrowShares: 0n,
-      collateral: 0n,
-    });
-  }
+  const position = await context.Position.getOrCreate({
+    id: pId,
+    chainId: event.chainId,
+    market_id: mId,
+    user: event.params.onBehalf,
+    supplyShares: 0n,
+    borrowShares: 0n,
+    collateral: 0n,
+  });
+  context.Position.set({
+    ...position,
+    supplyShares: position.supplyShares + event.params.shares,
+  });
 });
 
 Morpho.Withdraw.handler(async ({ event, context }) => {
-  // Update market
   const mId = marketId(event.chainId, event.params.id);
-  const existingMarket = await context.Market.get(mId);
-  if (existingMarket) {
-    context.Market.set({
-      ...existingMarket,
-      totalSupplyAssets: existingMarket.totalSupplyAssets - event.params.assets,
-      totalSupplyShares: existingMarket.totalSupplyShares - event.params.shares,
-      lastUpdate: BigInt(event.block.timestamp),
-    });
-  }
+  const market = await context.Market.getOrThrow(mId);
+  context.Market.set({
+    ...market,
+    totalSupplyAssets: market.totalSupplyAssets - event.params.assets,
+    totalSupplyShares: market.totalSupplyShares - event.params.shares,
+    lastUpdate: BigInt(event.block.timestamp),
+  });
 
-  // Update position
   const pId = positionId(event.chainId, event.params.id, event.params.onBehalf);
-  const existingPosition = await context.Position.get(pId);
-  if (existingPosition) {
-    context.Position.set({
-      ...existingPosition,
-      supplyShares: existingPosition.supplyShares - event.params.shares,
-    });
-  }
+  const position = await context.Position.getOrCreate({
+    id: pId,
+    chainId: event.chainId,
+    market_id: mId,
+    user: event.params.onBehalf,
+    supplyShares: 0n,
+    borrowShares: 0n,
+    collateral: 0n,
+  });
+  context.Position.set({
+    ...position,
+    supplyShares: position.supplyShares - event.params.shares,
+  });
 });
 
 Morpho.SupplyCollateral.handler(async ({ event, context }) => {
-  // Update market lastUpdate
   const mId = marketId(event.chainId, event.params.id);
-  const existingMarket = await context.Market.get(mId);
-  if (existingMarket) {
-    context.Market.set({
-      ...existingMarket,
-      lastUpdate: BigInt(event.block.timestamp),
-    });
-  }
+  const market = await context.Market.getOrThrow(mId);
+  context.Market.set({
+    ...market,
+    lastUpdate: BigInt(event.block.timestamp),
+  });
 
-  // Upsert position
   const pId = positionId(event.chainId, event.params.id, event.params.onBehalf);
-  const existingPosition = await context.Position.get(pId);
-  if (existingPosition) {
-    context.Position.set({
-      ...existingPosition,
-      collateral: existingPosition.collateral + event.params.assets,
-    });
-  } else {
-    context.Position.set({
-      id: pId,
-      chainId: event.chainId,
-      market_id: mId,
-      user: event.params.onBehalf,
-      supplyShares: 0n,
-      borrowShares: 0n,
-      collateral: event.params.assets,
-    });
-  }
+  const position = await context.Position.getOrCreate({
+    id: pId,
+    chainId: event.chainId,
+    market_id: mId,
+    user: event.params.onBehalf,
+    supplyShares: 0n,
+    borrowShares: 0n,
+    collateral: 0n,
+  });
+  context.Position.set({
+    ...position,
+    collateral: position.collateral + event.params.assets,
+  });
 });
 
 Morpho.WithdrawCollateral.handler(async ({ event, context }) => {
-  // Update market lastUpdate
   const mId = marketId(event.chainId, event.params.id);
-  const existingMarket = await context.Market.get(mId);
-  if (existingMarket) {
-    context.Market.set({
-      ...existingMarket,
-      lastUpdate: BigInt(event.block.timestamp),
-    });
-  }
+  const market = await context.Market.getOrThrow(mId);
+  context.Market.set({
+    ...market,
+    lastUpdate: BigInt(event.block.timestamp),
+  });
 
-  // Update position
   const pId = positionId(event.chainId, event.params.id, event.params.onBehalf);
-  const existingPosition = await context.Position.get(pId);
-  if (existingPosition) {
-    context.Position.set({
-      ...existingPosition,
-      collateral: existingPosition.collateral - event.params.assets,
-    });
-  }
+  const position = await context.Position.getOrCreate({
+    id: pId,
+    chainId: event.chainId,
+    market_id: mId,
+    user: event.params.onBehalf,
+    supplyShares: 0n,
+    borrowShares: 0n,
+    collateral: 0n,
+  });
+  context.Position.set({
+    ...position,
+    collateral: position.collateral - event.params.assets,
+  });
 });
 
 Morpho.Borrow.handler(async ({ event, context }) => {
-  // Update market
   const mId = marketId(event.chainId, event.params.id);
-  const existingMarket = await context.Market.get(mId);
-  if (existingMarket) {
-    context.Market.set({
-      ...existingMarket,
-      totalBorrowAssets: existingMarket.totalBorrowAssets + event.params.assets,
-      totalBorrowShares: existingMarket.totalBorrowShares + event.params.shares,
-      lastUpdate: BigInt(event.block.timestamp),
-    });
-  }
+  const market = await context.Market.getOrThrow(mId);
+  context.Market.set({
+    ...market,
+    totalBorrowAssets: market.totalBorrowAssets + event.params.assets,
+    totalBorrowShares: market.totalBorrowShares + event.params.shares,
+    lastUpdate: BigInt(event.block.timestamp),
+  });
 
-  // Update position
   const pId = positionId(event.chainId, event.params.id, event.params.onBehalf);
-  const existingPosition = await context.Position.get(pId);
-  if (existingPosition) {
-    context.Position.set({
-      ...existingPosition,
-      borrowShares: existingPosition.borrowShares + event.params.shares,
-    });
-  }
+  const position = await context.Position.getOrCreate({
+    id: pId,
+    chainId: event.chainId,
+    market_id: mId,
+    user: event.params.onBehalf,
+    supplyShares: 0n,
+    borrowShares: 0n,
+    collateral: 0n,
+  });
+  context.Position.set({
+    ...position,
+    borrowShares: position.borrowShares + event.params.shares,
+  });
 });
 
 Morpho.Repay.handler(async ({ event, context }) => {
-  // Update market
   const mId = marketId(event.chainId, event.params.id);
-  const existingMarket = await context.Market.get(mId);
-  if (existingMarket) {
-    context.Market.set({
-      ...existingMarket,
-      totalBorrowAssets: existingMarket.totalBorrowAssets - event.params.assets,
-      totalBorrowShares: existingMarket.totalBorrowShares - event.params.shares,
-      lastUpdate: BigInt(event.block.timestamp),
-    });
-  }
+  const market = await context.Market.getOrThrow(mId);
+  context.Market.set({
+    ...market,
+    totalBorrowAssets: market.totalBorrowAssets - event.params.assets,
+    totalBorrowShares: market.totalBorrowShares - event.params.shares,
+    lastUpdate: BigInt(event.block.timestamp),
+  });
 
-  // Update position
   const pId = positionId(event.chainId, event.params.id, event.params.onBehalf);
-  const existingPosition = await context.Position.get(pId);
-  if (existingPosition) {
-    context.Position.set({
-      ...existingPosition,
-      borrowShares: existingPosition.borrowShares - event.params.shares,
-    });
-  }
+  const position = await context.Position.getOrCreate({
+    id: pId,
+    chainId: event.chainId,
+    market_id: mId,
+    user: event.params.onBehalf,
+    supplyShares: 0n,
+    borrowShares: 0n,
+    collateral: 0n,
+  });
+  context.Position.set({
+    ...position,
+    borrowShares: position.borrowShares - event.params.shares,
+  });
 });
 
 Morpho.Liquidate.handler(async ({ event, context }) => {
-  // Update market
   const mId = marketId(event.chainId, event.params.id);
-  const existingMarket = await context.Market.get(mId);
-  if (existingMarket) {
-    context.Market.set({
-      ...existingMarket,
-      totalSupplyAssets: existingMarket.totalSupplyAssets - event.params.badDebtAssets,
-      totalSupplyShares: existingMarket.totalSupplyShares - event.params.badDebtShares,
-      totalBorrowAssets: existingMarket.totalBorrowAssets - event.params.repaidAssets,
-      totalBorrowShares: existingMarket.totalBorrowShares - event.params.repaidShares,
-      lastUpdate: BigInt(event.block.timestamp),
-    });
-  }
+  const market = await context.Market.getOrThrow(mId);
+  context.Market.set({
+    ...market,
+    totalSupplyAssets: market.totalSupplyAssets - event.params.badDebtAssets,
+    totalSupplyShares: market.totalSupplyShares - event.params.badDebtShares,
+    totalBorrowAssets: market.totalBorrowAssets - event.params.repaidAssets,
+    totalBorrowShares: market.totalBorrowShares - event.params.repaidShares,
+    lastUpdate: BigInt(event.block.timestamp),
+  });
 
-  // Update position
   const pId = positionId(event.chainId, event.params.id, event.params.borrower);
-  const existingPosition = await context.Position.get(pId);
-  if (existingPosition) {
-    context.Position.set({
-      ...existingPosition,
-      collateral: existingPosition.collateral - event.params.seizedAssets,
-      borrowShares:
-        existingPosition.borrowShares -
-        event.params.repaidShares -
-        event.params.badDebtShares,
-    });
-  }
+  const position = await context.Position.getOrCreate({
+    id: pId,
+    chainId: event.chainId,
+    market_id: mId,
+    user: event.params.borrower,
+    supplyShares: 0n,
+    borrowShares: 0n,
+    collateral: 0n,
+  });
+  context.Position.set({
+    ...position,
+    collateral: position.collateral - event.params.seizedAssets,
+    borrowShares:
+      position.borrowShares -
+      event.params.repaidShares -
+      event.params.badDebtShares,
+  });
 });
 
 Morpho.SetAuthorization.handler(async ({ event, context }) => {
